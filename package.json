@@ -1,4 +1,4 @@
-{
+{ 
   "name": "grain-price-scraper",
   "version": "1.0.0",
   "description": "Headless browser grain price scraper for Railway",
