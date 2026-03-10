@@ -1,4 +1,4 @@
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer"); 
 
 // ─────────────────────────────────────────────────────────────
 // SCRAPER CONFIG — one entry per location/site
