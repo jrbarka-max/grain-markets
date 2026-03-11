@@ -1,7 +1,6 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const puppeteer = require("puppeteer");
 const cron = require("node-cron");
 const { createClient } = require("@supabase/supabase-js");
 const { SCRAPERS } = require("./scrapers");
@@ -16,54 +15,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5aHprZ3doc3F0YmhwbHpla3liIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjQyMDg2OSwiZXhwIjoyMDg3OTk2ODY5fQ.GIkyIPOBuK9k_dE0ytWTD77vUVyEWGgnx_U85x9cQT8"
 );
 
-// ─── Browser helper ───────────────────────────────────────────────────────────
-let browser = null;
-
-async function getBrowser() {
-  if (!browser || !browser.isConnected()) {
-    browser = await puppeteer.launch({
-      headless: "new",
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--no-first-run",
-        "--no-zygote",
-        "--single-process",          // Required on Railway
-        "--disable-extensions",
-      ],
-    });
-  }
-  return browser;
-}
-
-// ─── Core scrape runner ───────────────────────────────────────────────────────
+// ─── Core scrape runner (no Puppeteer — direct API calls) ─────────────────────
 async function runScraper(scraper) {
-  const b = await getBrowser();
-  const page = await b.newPage();
-
-  // Block images/fonts/css to speed up scraping
-  await page.setRequestInterception(true);
-  page.on("request", req => {
-    const type = req.resourceType();
-    if (["image", "font", "media", "stylesheet"].includes(type)) {
-      req.abort();
-    } else {
-      req.continue();
-    }
-  });
-
-  await page.setUserAgent(
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
-  );
-
   try {
-    const bids = await scraper.scrape(page);
-    await page.close();
+    const bids = await scraper.scrape();
     return { success: true, bids, scrapedAt: new Date().toISOString() };
   } catch (err) {
-    await page.close();
     return { success: false, error: err.message, scrapedAt: new Date().toISOString() };
   }
 }
@@ -91,7 +48,7 @@ async function savePrices(scraperId, scraperName, location, bids) {
   const { error } = await supabase
     .from("grain_prices")
     .upsert(rows, {
-      onConflict: "scraper_id,grain,futures_month",
+      onConflict: "scraper_id,grain,futures_month,location",
       ignoreDuplicates: false,
     });
 
@@ -115,9 +72,7 @@ async function scrapeAll() {
     }
 
     results.push({ scraper: scraper.id, name: scraper.name, ...result });
-
-    // Small delay between sites to be polite
-    await new Promise(r => setTimeout(r, 1500));
+    await new Promise(r => setTimeout(r, 1000));
   }
 
   console.log(`[${new Date().toISOString()}] Scrape run complete.`);
@@ -125,8 +80,6 @@ async function scrapeAll() {
 }
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
-
-// GET /prices — latest prices from Supabase
 app.get("/prices", async (req, res) => {
   try {
     const { data, error } = await supabase
@@ -136,10 +89,9 @@ app.get("/prices", async (req, res) => {
 
     if (error) throw error;
 
-    // Return latest per scraper+grain combo
     const seen = new Set();
     const latest = (data || []).filter(row => {
-      const key = `${row.scraper_id}:${row.grain}:${row.futures_month}`;
+      const key = `${row.scraper_id}:${row.grain}:${row.futures_month}:${row.location}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -151,10 +103,8 @@ app.get("/prices", async (req, res) => {
   }
 });
 
-// POST /scrape — trigger manual scrape
 app.post("/scrape", async (req, res) => {
-  const { scraperId } = req.body; // optional: scrape single source
-
+  const { scraperId } = req.body;
   try {
     let results;
     if (scraperId) {
@@ -172,7 +122,6 @@ app.post("/scrape", async (req, res) => {
   }
 });
 
-// GET /scrape/status — list all configured scrapers
 app.get("/scrape/status", async (req, res) => {
   const sources = SCRAPERS.map(s => ({
     id: s.id,
@@ -182,10 +131,9 @@ app.get("/scrape/status", async (req, res) => {
     url: s.url,
   }));
 
-  // Get last scrape times from Supabase
   const { data } = await supabase
     .from("grain_prices")
-    .select("scraper_id, scraped_at")
+    .select("scraper_id, scraped_at, location")
     .order("scraped_at", { ascending: false });
 
   const lastScrape = {};
@@ -193,30 +141,25 @@ app.get("/scrape/status", async (req, res) => {
     if (!lastScrape[row.scraper_id]) lastScrape[row.scraper_id] = row.scraped_at;
   });
 
-  res.json({
-    sources: sources.map(s => ({ ...s, lastScrape: lastScrape[s.id] || null })),
-  });
+  res.json({ sources: sources.map(s => ({ ...s, lastScrape: lastScrape[s.id] || null })) });
 });
 
-// GET /health
 app.get("/health", (req, res) => res.json({ status: "ok", scrapers: SCRAPERS.length }));
 
-// ─── Cron: scrape every 30 min on weekdays 7am–5pm CT ───────────────────────
-// Cron: "*/30 12-22 * * 1-5" = every 30 min, 12-22 UTC (7am-5pm CT)
-cron.schedule("*/30 12-22 * * 1-5", async () => {
+// ─── Cron: 9:30am and 2:00pm CT, Monday–Friday ───────────────────────────────
+cron.schedule("30 14 * * 1-5", async () => {
+  console.log("Cron: 9:30am CT scrape");
+  await scrapeAll();
+});
+cron.schedule("0 20 * * 1-5", async () => {
+  console.log("Cron: 2:00pm CT scrape");
   await scrapeAll();
 });
 
-// ─── Start ───────────────────────────────────────────────────────────────────
+// ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Grain scraper running on port ${PORT}`);
   console.log(`Scrapers configured: ${SCRAPERS.map(s => s.name).join(", ")}`);
-  // Run an initial scrape on startup
-  setTimeout(scrapeAll, 5000);
-});
-
-process.on("SIGTERM", async () => {
-  if (browser) await browser.close();
-  process.exit(0);
+  setTimeout(scrapeAll, 3000);
 });
