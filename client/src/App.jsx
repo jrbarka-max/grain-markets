@@ -117,12 +117,25 @@ export default function GrainDashboard() {
   useEffect(()=>{
     fetchPrices(); fetchStatus();
     const iv = setInterval(fetchPrices, 5*60*1000);
-    return ()=>clearInterval(iv);
+   useEffect(()=>{
+    fetchPrices(); fetchStatus();
+    const scrapeTimesUTC = [{h:15,m:31},{h:20,m:1}];
+    const now = new Date();
+    let msUntilNext = null;
+    for (const t of scrapeTimesUTC) {
+      const candidate = new Date(now);
+      candidate.setUTCHours(t.h, t.m, 0, 0);
+      if (candidate > now) { msUntilNext = candidate - now; break; }
+    }
+    if (!msUntilNext) {
+      const tomorrow = new Date(now);
+      tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+      tomorrow.setUTCHours(15, 31, 0, 0);
+      msUntilNext = tomorrow - now;
+    }
+    const iv = setTimeout(fetchPrices, msUntilNext);
+    return ()=>clearTimeout(iv);
   },[fetchPrices,fetchStatus]);
-
-  const handleScrapeAll = async () => {
-    setScraping(true);
-    try {
       const r = await fetch(`${API_BASE}/scrape`,{ method:"POST",headers:{"Content-Type":"application/json"},body:"{}" });
       const d = await r.json();
       const ok = d.results?.filter(x=>x.success).length||0;
@@ -217,7 +230,7 @@ export default function GrainDashboard() {
             <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20 }}>
               <div>
                 <h2 style={{ margin:0,fontSize:20,fontFamily:"'Playfair Display',serif" }}>Live Elevator Bids</h2>
-                <p style={{ margin:"4px 0 0",color:"#4a7c59",fontSize:12 }}>{lastRefresh?`Last refreshed ${lastRefresh.toLocaleTimeString()}`:"Not yet fetched"} · Auto-refreshes every 5 min</p>
+                <p style={{ margin:"4px 0 0",color:"#4a7c59",fontSize:12 }}>{lastRefresh?`Last refreshed ${lastRefresh.toLocaleTimeString()}`:"Not yet fetched"} · Auto-refreshes after scrape (9:30am & 2:00pm CT)</p>
               </div>
               <button onClick={handleScrapeAll} disabled={scraping} style={{ padding:"10px 20px",background:scraping?"#1a2e1a":"linear-gradient(135deg,#22c55e,#16a34a)",border:"none",borderRadius:10,color:"#fff",fontWeight:600,cursor:scraping?"not-allowed":"pointer",fontSize:13,fontFamily:"'IBM Plex Mono',monospace",display:"flex",alignItems:"center",gap:8 }}>
                 <span style={{ display:"inline-block",animation:scraping?"spin 1s linear infinite":"none" }}>⟳</span>
