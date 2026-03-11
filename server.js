@@ -12,8 +12,8 @@ app.use(express.json());
 
 // ─── Supabase ─────────────────────────────────────────────────────────────────
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  process.env.SUPABASE_URL || "https://zyhzkgwhsqtbhplzekyb.supabase.co",
+  process.env.SUPABASE_SERVICE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp5aHprZ3doc3F0YmhwbHpla3liIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MjQyMDg2OSwiZXhwIjoyMDg3OTk2ODY5fQ.GIkyIPOBuK9k_dE0ytWTD77vUVyEWGgnx_U85x9cQT8"
 );
 
 // ─── Browser helper ───────────────────────────────────────────────────────────
