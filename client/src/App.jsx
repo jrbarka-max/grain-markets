@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 // ─── CONFIG — swap in your Railway URL ───────────────────────────────────────
 const API_BASE = "https://your-grain-scraper.up.railway.app"; // ← update this
