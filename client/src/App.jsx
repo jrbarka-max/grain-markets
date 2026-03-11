@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 
 // ─── CONFIG — swap in your Railway URL ───────────────────────────────────────
-const API_BASE = "https//grain-markets-production.up.railway.app";
+const API_BASE = "https://grain-markets-production.up.railway.app";
 
 const GRAIN_COLORS = { Corn: "#f59e0b", Soybeans: "#84cc16" };
 const GRAINS = ["Corn", "Soybeans"];
