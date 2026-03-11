@@ -133,9 +133,13 @@ export default function GrainDashboard() {
       tomorrow.setUTCHours(15, 31, 0, 0);
       msUntilNext = tomorrow - now;
     }
-    const iv = setTimeout(fetchPrices, msUntilNext);
+   const iv = setTimeout(fetchPrices, msUntilNext);
     return ()=>clearTimeout(iv);
   },[fetchPrices,fetchStatus]);
+
+  const handleScrapeAll = async () => {
+    setScraping(true);
+    try {
       const r = await fetch(`${API_BASE}/scrape`,{ method:"POST",headers:{"Content-Type":"application/json"},body:"{}" });
       const d = await r.json();
       const ok = d.results?.filter(x=>x.success).length||0;
