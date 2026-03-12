@@ -92,7 +92,7 @@ const SCRAPERS = [
           const monthMatch = row.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i);
           if (priceMatch) {
             const cashPrice = parseFloat(priceMatch[0].replace("$", ""));
-            if (cashPrice > 1) results.push({ commodity: "Corn", cashPrice, basis: null, futuresMonth: monthMatch ? monthMatch[0] : null, rawText: row.slice(0, 100) });
+            if (cashPrice > 1) results.push({ commodity: "Corn", cashPrice, basis: null, futuresMonth: monthMatch ? monthMatch[0] : null, rawText: row.slice(0, 2000) });
           }
         });
       }
