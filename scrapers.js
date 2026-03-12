@@ -48,14 +48,18 @@ const SCRAPERS = [
       const res = await fetch(
         "https://www.cihedging.com/cih/api/index.cfm/v2/origination/cashbids/110773/widget?commodity_ids=&custom_commodity_ids=&exclude_non_custom=false&exclude_custom=false&address_ids=&show_cash_bid_title=true&show_cash_bid_filters=true&show_cash_bid_note=true&show_location_names=true",
         {
-          method: "GET",
+          method: "POST",
           headers: {
-            "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 Chrome/120",
-            "Referer": "https://bushmillsethanol.com/",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
             "Origin": "https://bushmillsethanol.com",
-            "X-Requested-With": "XMLHttpRequest",
+            "Referer": "https://bushmillsethanol.com/corn-procurement-and-bids/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
           },
+          body: null,
         }
       );
       const text = await res.text();
@@ -89,18 +93,23 @@ const SCRAPERS = [
   {
     id: "chs_mankato",
     name: "CHS — Mankato",
-    url: "https://futures.bushelops.com/api/v1/cash-bids?location-remote-ids=SAV%2CWINN%2CKASS%2CCTMN%2COSTR%2CWYKO%2CSANS%2CMKTO%2CFMNT%2CCOMS",
+    url: "https://centre.bushelops.com/api/v1/cash-bids?location-remote-ids=SAV%2CWINN%2CKASS%2CCTMN%2COSTR%2CWYKO%2CSANS%2CMKTO%2CFMNT%2CCOMS",
     location: "Mankato, MN",
     grains: ["Corn", "Soybeans"],
     scrape: async () => {
       const res = await fetch(
-        "https://futures.bushelops.com/api/v1/cash-bids?location-remote-ids=SAV%2CWINN%2CKASS%2CCTMN%2COSTR%2CWYKO%2CSANS%2CMKTO%2CFMNT%2CCOMS",
+        "https://centre.bushelops.com/api/v1/cash-bids?location-remote-ids=SAV%2CWINN%2CKASS%2CCTMN%2COSTR%2CWYKO%2CSANS%2CMKTO%2CFMNT%2CCOMS",
         {
           headers: {
-            "User-Agent": "Mozilla/5.0 Chrome/120",
-            "Accept": "application/json",
-            "Referer": "https://chsag.com/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Referer": "https://chsag.com/grain/cash-bids/",
             "Origin": "https://chsag.com",
+            "app-company": "chs",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "cross-site",
           }
         }
       );
