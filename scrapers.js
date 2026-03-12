@@ -69,7 +69,8 @@ const SCRAPERS = [
       let html = text;
       try { html = JSON.parse(text); } catch(e) { /* already raw HTML */ }
 
-      console.log("Bushmills HTML snippet:", html.slice(0, 3000));
+      const dataStart = html.indexOf('data-cash') > -1 ? html.indexOf('data-cash') : html.indexOf('cih-com-row') > -1 ? html.indexOf('cih-com-row') : 2000;
+console.log("Bushmills data section:", html.slice(dataStart, dataStart + 1000));
 
       const results = [];
 
