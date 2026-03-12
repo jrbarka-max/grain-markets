@@ -9,18 +9,14 @@ const SCRAPERS = [
     scrape: async () => {
       const res = await fetch(
         "https://api.dtn.com/markets/sites/E0200701/cash-bids?&apikey=0T9QFViMwN7qKJBG2VsVcv9yR7HAObJz&units=us",
-        { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120", "Accept": "application/json" } }
+        { headers: { "User-Agent": "Mozilla/5.0 Chrome/120", "Accept": "application/json" } }
       );
-      const text = await res.text();
-      console.log("DTN status:", res.status);
-      console.log("DTN response (first 500):", text.slice(0, 500));
-      try {
-        const data = JSON.parse(text);
-        return parseDTN(data, "Litchfield");
-      } catch(e) {
-        console.log("DTN parse error:", e.message);
-        return [];
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        const locs = [...new Set(data.map(b => b.location?.name).filter(Boolean))];
+        console.log("DTN locations:", locs.join(", "));
       }
+      return parseDTN(data, "Litchfield");
     },
   },
 
@@ -34,15 +30,10 @@ const SCRAPERS = [
     scrape: async () => {
       const res = await fetch(
         "https://api.dtn.com/markets/sites/E0200701/cash-bids?&apikey=0T9QFViMwN7qKJBG2VsVcv9yR7HAObJz&units=us",
-        { headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120", "Accept": "application/json" } }
+        { headers: { "User-Agent": "Mozilla/5.0 Chrome/120", "Accept": "application/json" } }
       );
-      const text = await res.text();
-      try {
-        const data = JSON.parse(text);
-        return parseDTN(data, "Brownton");
-      } catch(e) {
-        return [];
-      }
+      const data = await res.json();
+      return parseDTN(data, "Brownton");
     },
   },
 
@@ -57,25 +48,26 @@ const SCRAPERS = [
       const res = await fetch(
         "https://www.cihedging.com/cih/api/index.cfm/v2/origination/cashbids/110773/widget?commodity_ids=&custom_commodity_ids=&exclude_non_custom=false&exclude_custom=false&address_ids=&show_cash_bid_title=true&show_cash_bid_filters=true&show_cash_bid_note=true&show_location_names=true",
         {
-          method: "POST",
+          method: "GET",
           headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
             "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120",
+            "User-Agent": "Mozilla/5.0 Chrome/120",
             "Referer": "https://bushmillsethanol.com/",
             "Origin": "https://bushmillsethanol.com",
+            "X-Requested-With": "XMLHttpRequest",
           },
-          body: "",
         }
       );
       const text = await res.text();
       console.log("Bushmills status:", res.status);
-      console.log("Bushmills response (first 500):", text.slice(0, 500));
+      console.log("Bushmills first 300:", text.slice(0, 300));
       try {
         const data = JSON.parse(text);
         const results = [];
         const bids = Array.isArray(data) ? data
           : (data?.cash_bids || data?.bids || data?.data || data?.cashBids || []);
+        console.log("Bushmills bid count:", bids.length);
+        if (bids.length > 0) console.log("Bushmills first bid:", JSON.stringify(bids[0]).slice(0, 200));
         bids.forEach(bid => {
           const name = (bid.commodity_name || bid.commodity || bid.name || bid.commodityName || "").toLowerCase();
           if (!/corn/.test(name)) return;
@@ -97,16 +89,15 @@ const SCRAPERS = [
   {
     id: "chs_mankato",
     name: "CHS — Mankato",
-    url: "https://futures.bushelops.com/api/v1/cash-bids?location-remote-ids=MKTO",
+    url: "https://futures.bushelops.com/api/v1/cash-bids?location-remote-ids=SAV%2CWINN%2CKASS%2CCTMN%2COSTR%2CWYKO%2CSANS%2CMKTO%2CFMNT%2CCOMS",
     location: "Mankato, MN",
     grains: ["Corn", "Soybeans"],
     scrape: async () => {
-      // Try with full original URL that we saw in the browser
       const res = await fetch(
         "https://futures.bushelops.com/api/v1/cash-bids?location-remote-ids=SAV%2CWINN%2CKASS%2CCTMN%2COSTR%2CWYKO%2CSANS%2CMKTO%2CFMNT%2CCOMS",
         {
           headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120",
+            "User-Agent": "Mozilla/5.0 Chrome/120",
             "Accept": "application/json",
             "Referer": "https://chsag.com/",
             "Origin": "https://chsag.com",
@@ -115,75 +106,71 @@ const SCRAPERS = [
       );
       const text = await res.text();
       console.log("CHS status:", res.status);
-      console.log("CHS response (first 500):", text.slice(0, 500));
       try {
         const data = JSON.parse(text);
-        return parseBushelOps(data);
+        return parseBushelOps(data, "Mankato");
       } catch(e) {
         console.log("CHS parse error:", e.message);
+        console.log("CHS raw:", text.slice(0, 300));
         return [];
       }
     },
   },
 ];
 
-// ─── DTN parser ───────────────────────────────────────────────────────────────
+// ─── DTN parser — location is a nested object ─────────────────────────────────
 function parseDTN(data, locationFilter) {
   const results = [];
-  let items = [];
+  if (!Array.isArray(data)) return results;
 
-  if (Array.isArray(data)) {
-    items = data;
-  } else if (data?.locations) {
-    data.locations.forEach(loc => {
-      const locName = (loc.name || loc.locationName || "").toLowerCase();
-      if (locationFilter && !locName.includes(locationFilter.toLowerCase())) return;
-      (loc.bids || loc.cashBids || []).forEach(bid => items.push({ ...bid, _location: loc.name }));
-    });
-  } else if (data?.cashBids) {
-    items = data.cashBids;
-  } else if (data?.data) {
-    items = data.data;
-  } else {
-    Object.values(data).forEach(v => { if (Array.isArray(v)) items.push(...v); });
-  }
+  data.forEach(bid => {
+    const locName = (bid.location?.name || "").toLowerCase();
+    if (locationFilter && !locName.includes(locationFilter.toLowerCase())) return;
 
-  items.forEach(bid => {
-    if (locationFilter && !data?.locations) {
-      const loc = bid.locationName || bid.location || bid.site || bid.location_name || "";
-      if (typeof loc === "string" && loc && !loc.toLowerCase().includes(locationFilter.toLowerCase())) return;
-    }
-    const name = (bid.commodityName || bid.commodity || bid.name || bid.commodity_name || "").toLowerCase();
+    const name = (bid.commodityDisplayName || bid.commodityName || bid.commodity || "").toLowerCase();
     let grain = null;
     if (/corn/.test(name)) grain = "Corn";
     else if (/soy|bean/.test(name)) grain = "Soybeans";
     if (!grain) return;
-    const cashPrice = parseFloat(bid.cashPrice || bid.cash_price || bid.price || bid.cash || 0);
-    const basis = parseFloat(bid.basis || bid.basisPrice || bid.basis_price || 0) || null;
-    const futuresMonth = bid.futuresMonth || bid.futures_month || bid.deliveryMonth || bid.delivery_month || bid.month || null;
+
+    const cashPrice = parseFloat(bid.cashPrice || bid.cash_price || 0);
+    const basis = parseFloat(bid.basisPrice || bid.basis || 0) || null;
+    const futuresMonth = bid.contractDeliveryLabel || bid.futuresMonth || bid.month || null;
+
     if (!cashPrice || cashPrice < 1) return;
+
     results.push({ commodity: grain, cashPrice, basis, futuresMonth, rawText: JSON.stringify(bid).slice(0, 200) });
   });
 
   return results;
 }
 
-// ─── BushelOps parser ────────────────────────────────────────────────────────
-function parseBushelOps(data) {
+// ─── BushelOps parser — nested data[].crops[].bids[] ─────────────────────────
+function parseBushelOps(data, locationFilter) {
   const results = [];
-  const items = Array.isArray(data) ? data : (data?.data || data?.bids || data?.cashBids || []);
-  items.forEach(bid => {
-    const name = (bid.commodityName || bid.commodity || bid.name || bid.commodity_name || "").toLowerCase();
-    let grain = null;
-    if (/corn/.test(name)) grain = "Corn";
-    else if (/soy|bean/.test(name)) grain = "Soybeans";
-    if (!grain) return;
-    const cashPrice = parseFloat(bid.cashPrice || bid.cash_price || bid.price || 0);
-    const basis = parseFloat(bid.basis || bid.basisPrice || bid.basis_price || 0) || null;
-    const futuresMonth = bid.futuresMonth || bid.futures_month || bid.deliveryMonth || null;
-    if (!cashPrice || cashPrice < 1) return;
-    results.push({ commodity: grain, cashPrice, basis, futuresMonth, rawText: JSON.stringify(bid).slice(0, 200) });
+  const locations = data?.data || [];
+
+  locations.forEach(loc => {
+    const locName = (loc.location_name || "").toLowerCase();
+    if (locationFilter && !locName.includes(locationFilter.toLowerCase())) return;
+
+    (loc.crops || []).forEach(crop => {
+      const name = (crop.name || "").toLowerCase();
+      let grain = null;
+      if (/corn/.test(name)) grain = "Corn";
+      else if (/soy|bean/.test(name)) grain = "Soybeans";
+      if (!grain) return;
+
+      (crop.bids || []).forEach(bid => {
+        const cashPrice = parseFloat(bid.current_bid || 0);
+        const basis = parseFloat(bid.basis_price || 0) || null;
+        const futuresMonth = bid.description || null;
+        if (!cashPrice || cashPrice < 1) return;
+        results.push({ commodity: grain, cashPrice, basis, futuresMonth, rawText: JSON.stringify(bid).slice(0, 200) });
+      });
+    });
   });
+
   return results;
 }
 
