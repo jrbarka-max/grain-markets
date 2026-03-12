@@ -14,7 +14,6 @@ const SCRAPERS = [
       const data = await res.json();
       if (Array.isArray(data)) {
         const locs = [...new Set(data.map(b => b.location && b.location.name).filter(Boolean))];
-        console.log("DTN locations:", locs.join(", "));
       }
       return parseDTN(data, "Litchfield");
     },
@@ -63,7 +62,6 @@ const SCRAPERS = [
         }
       );
       const text = await res.text();
-      console.log("Bushmills status:", res.status);
 
       // API returns a JSON-encoded HTML string
       let html = text;
@@ -90,7 +88,6 @@ const SCRAPERS = [
         results.push({ commodity: "Corn", cashPrice, basis, futuresMonth: deliveryPeriod, rawText: row.slice(0, 200) });
       });
 
-      console.log("Bushmills extracted:", results.length, "bids");      console.log("Bushmills extracted:", results.length, "bids");
       return results;
     },
   },
@@ -123,13 +120,10 @@ const SCRAPERS = [
         }
       );
       const text = await res.text();
-      console.log("CHS status:", res.status);
       try {
         const data = JSON.parse(text);
         return parseBushelOps(data, "Mankato");
       } catch(e) {
-        console.log("CHS parse error:", e.message);
-        console.log("CHS raw:", text.slice(0, 300));
         return [];
       }
     },
