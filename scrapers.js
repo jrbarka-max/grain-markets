@@ -69,35 +69,28 @@ const SCRAPERS = [
       let html = text;
       try { html = JSON.parse(text); } catch(e) { /* already raw HTML */ }
 
-      const rowIdx = html.indexOf('<tr'); const firstRows = html.slice(rowIdx, rowIdx + 3000); console.log("Bushmills rows:", firstRows);
+      console.log("Bushmills HTML snippet:", html.slice(0, 500));
 
       const results = [];
+      const seen = new Set();
 
-      // Try data attributes first: data-cash-price="3.83" data-basis="-0.77" data-delivery-label="Mar 26"
-      const bidPattern = /data-cash-price="([\d.]+)"[^>]*data-basis="([^"]*)"[^>]*data-delivery-label="([^"]*)"/g;
-      let match;
-      while ((match = bidPattern.exec(html)) !== null) {
-        const cashPrice = parseFloat(match[1]);
-        const basis = parseFloat(match[2]) || null;
-        const futuresMonth = match[3] || null;
-        if (cashPrice > 1) results.push({ commodity: "Corn", cashPrice, basis, futuresMonth, rawText: match[0] });
-      }
+      // HTML table: td1=delivery label | td2=futures month+price | td3=change | td4=basis | td5=cash price
+      const rows = html.match(/<tr[\s\S]*?<\/tr>/gi) || [];
+      rows.forEach(row => {
+        const periodMatch = row.match(/data-delivery-period="([^"]+)"/);
+        if (!periodMatch) return;
+        const deliveryPeriod = periodMatch[1];
+        if (seen.has(deliveryPeriod)) return;
+        const tds = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m => m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
+        if (tds.length < 5) return;
+        const basis = parseFloat(tds[3]) || null;
+        const cashPrice = parseFloat(tds[4]);
+        if (!cashPrice || cashPrice < 1) return;
+        seen.add(deliveryPeriod);
+        results.push({ commodity: "Corn", cashPrice, basis, futuresMonth: deliveryPeriod, rawText: row.slice(0, 200) });
+      });
 
-      // Fallback: pull prices and month labels from table text
-      if (results.length === 0) {
-        console.log("Bushmills: trying fallback extraction");
-        const rows = html.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
-        rows.forEach(row => {
-          const priceMatch = row.match(/\$?(3|4|5|6|7)\.\d{2,4}/);
-          const monthMatch = row.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i);
-          if (priceMatch) {
-            const cashPrice = parseFloat(priceMatch[0].replace("$", ""));
-            if (cashPrice > 1) results.push({ commodity: "Corn", cashPrice, basis: null, futuresMonth: monthMatch ? monthMatch[0] : null, rawText: row.slice(0, 2000) });
-          }
-        });
-      }
-
-      console.log("Bushmills extracted:", results.length, "bids");
+      console.log("Bushmills extracted:", results.length, "bids");      console.log("Bushmills extracted:", results.length, "bids");
       return results;
     },
   },
