@@ -69,9 +69,7 @@ const SCRAPERS = [
       let html = text;
       try { html = JSON.parse(text); } catch(e) { /* already raw HTML */ }
 
-      const rowIdx = html.indexOf('<tr'); 
-const firstRows = html.slice(rowIdx, rowIdx + 3000);
-console.log("Bushmills rows:", firstRows);
+      const rowIdx = html.indexOf('<tr'); const firstRows = html.slice(rowIdx, rowIdx + 3000); console.log("Bushmills rows:", firstRows);
 
       const results = [];
 
