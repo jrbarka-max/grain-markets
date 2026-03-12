@@ -106,12 +106,12 @@ const SCRAPERS = [
   {
     id: "chs_mankato",
     name: "CHS — Mankato",
-    url: "https://centre.bushelops.com/api/v1/cash-bids?location-remote-ids=SAV%2CWINN%2CKASS%2CCTMN%2COSTR%2CWYKO%2CSANS%2CMKTO%2CFMNT%2CCOMS",
+    url: "https://futures.bushelops.com/api/v1/cash-bids?location-remote-ids=SAV%2CWINN%2CKASS%2CCTMN%2COSTR%2CWYKO%2CSANS%2CMKTO%2CFMNT%2CCOMS",
     location: "Mankato, MN",
     grains: ["Corn", "Soybeans"],
     scrape: async () => {
       const res = await fetch(
-        "https://centre.bushelops.com/api/v1/cash-bids?location-remote-ids=SAV%2CWINN%2CKASS%2CCTMN%2COSTR%2CWYKO%2CSANS%2CMKTO%2CFMNT%2CCOMS",
+        "https://futures.bushelops.com/api/v1/cash-bids?location-remote-ids=SAV%2CWINN%2CKASS%2CCTMN%2COSTR%2CWYKO%2CSANS%2CMKTO%2CFMNT%2CCOMS",
         {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
@@ -120,6 +120,9 @@ const SCRAPERS = [
             "Referer": "https://chsag.com/grain/cash-bids/",
             "Origin": "https://chsag.com",
             "app-company": "chs",
+            "app-installation-id": "",
+            "app-name": "",
+            "app-version": "",
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "cross-site",
