@@ -69,7 +69,7 @@ const SCRAPERS = [
       let html = text;
       try { html = JSON.parse(text); } catch(e) { /* already raw HTML */ }
 
-      console.log("Bushmills HTML snippet:", html.slice(0, 500));
+      console.log("Bushmills HTML snippet:", html.slice(0, 3000));
 
       const results = [];
 
