@@ -69,7 +69,9 @@ const SCRAPERS = [
       let html = text;
       try { html = JSON.parse(text); } catch(e) { /* already raw HTML */ }
 
-      const priceIdx = html.search(/\$?[3-7]\.\d{2}/); console.log("Bushmills price section:", html.slice(Math.max(0, priceIdx - 200), priceIdx + 500));
+      const rowIdx = html.indexOf('<tr'); 
+const firstRows = html.slice(rowIdx, rowIdx + 3000);
+console.log("Bushmills rows:", firstRows);
 
       const results = [];
 
