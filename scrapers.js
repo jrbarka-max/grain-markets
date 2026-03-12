@@ -13,7 +13,7 @@ const SCRAPERS = [
       );
       const data = await res.json();
       if (Array.isArray(data)) {
-        const locs = [...new Set(data.map(b => b.location?.name).filter(Boolean))];
+        const locs = [...new Set(data.map(b => b.location && b.location.name).filter(Boolean))];
         console.log("DTN locations:", locs.join(", "));
       }
       return parseDTN(data, "Litchfield");
@@ -37,7 +37,7 @@ const SCRAPERS = [
     },
   },
 
-  // ─── Bushmills Ethanol (CIH API) ─────────────────────────────────────────
+  // ─── Bushmills Ethanol (CIH widget — returns HTML) ───────────────────────
   {
     id: "bushmills",
     name: "Bushmills Ethanol",
@@ -64,28 +64,41 @@ const SCRAPERS = [
       );
       const text = await res.text();
       console.log("Bushmills status:", res.status);
-      console.log("Bushmills first 300:", text.slice(0, 300));
-      try {
-        const data = JSON.parse(text);
-        const results = [];
-        const bids = Array.isArray(data) ? data
-          : (data?.cash_bids || data?.bids || data?.data || data?.cashBids || []);
-        console.log("Bushmills bid count:", bids.length);
-        if (bids.length > 0) console.log("Bushmills first bid:", JSON.stringify(bids[0]).slice(0, 200));
-        bids.forEach(bid => {
-          const name = (bid.commodity_name || bid.commodity || bid.name || bid.commodityName || "").toLowerCase();
-          if (!/corn/.test(name)) return;
-          const cashPrice = parseFloat(bid.cash_price || bid.cashPrice || bid.price || bid.cash || 0);
-          const basis = parseFloat(bid.basis || bid.basis_price || bid.basisPrice || 0) || null;
-          const futuresMonth = bid.futures_month || bid.delivery_month || bid.futuresMonth || bid.month || null;
-          if (!cashPrice) return;
-          results.push({ commodity: "Corn", cashPrice, basis, futuresMonth, rawText: JSON.stringify(bid).slice(0, 200) });
-        });
-        return results;
-      } catch(e) {
-        console.log("Bushmills parse error:", e.message);
-        return [];
+
+      // API returns a JSON-encoded HTML string
+      let html = text;
+      try { html = JSON.parse(text); } catch(e) { /* already raw HTML */ }
+
+      console.log("Bushmills HTML snippet:", html.slice(0, 500));
+
+      const results = [];
+
+      // Try data attributes first: data-cash-price="3.83" data-basis="-0.77" data-delivery-label="Mar 26"
+      const bidPattern = /data-cash-price="([\d.]+)"[^>]*data-basis="([^"]*)"[^>]*data-delivery-label="([^"]*)"/g;
+      let match;
+      while ((match = bidPattern.exec(html)) !== null) {
+        const cashPrice = parseFloat(match[1]);
+        const basis = parseFloat(match[2]) || null;
+        const futuresMonth = match[3] || null;
+        if (cashPrice > 1) results.push({ commodity: "Corn", cashPrice, basis, futuresMonth, rawText: match[0] });
       }
+
+      // Fallback: pull prices and month labels from table text
+      if (results.length === 0) {
+        console.log("Bushmills: trying fallback extraction");
+        const rows = html.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
+        rows.forEach(row => {
+          const priceMatch = row.match(/\$?(3|4|5|6|7)\.\d{2,4}/);
+          const monthMatch = row.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/i);
+          if (priceMatch) {
+            const cashPrice = parseFloat(priceMatch[0].replace("$", ""));
+            if (cashPrice > 1) results.push({ commodity: "Corn", cashPrice, basis: null, futuresMonth: monthMatch ? monthMatch[0] : null, rawText: row.slice(0, 100) });
+          }
+        });
+      }
+
+      console.log("Bushmills extracted:", results.length, "bids");
+      return results;
     },
   },
 
@@ -127,13 +140,13 @@ const SCRAPERS = [
   },
 ];
 
-// ─── DTN parser — location is a nested object ─────────────────────────────────
+// ─── DTN parser — location is a nested { id, name } object ───────────────────
 function parseDTN(data, locationFilter) {
   const results = [];
   if (!Array.isArray(data)) return results;
 
   data.forEach(bid => {
-    const locName = (bid.location?.name || "").toLowerCase();
+    const locName = (bid.location && bid.location.name ? bid.location.name : "").toLowerCase();
     if (locationFilter && !locName.includes(locationFilter.toLowerCase())) return;
 
     const name = (bid.commodityDisplayName || bid.commodityName || bid.commodity || "").toLowerCase();
@@ -147,7 +160,6 @@ function parseDTN(data, locationFilter) {
     const futuresMonth = bid.contractDeliveryLabel || bid.futuresMonth || bid.month || null;
 
     if (!cashPrice || cashPrice < 1) return;
-
     results.push({ commodity: grain, cashPrice, basis, futuresMonth, rawText: JSON.stringify(bid).slice(0, 200) });
   });
 
@@ -157,7 +169,7 @@ function parseDTN(data, locationFilter) {
 // ─── BushelOps parser — nested data[].crops[].bids[] ─────────────────────────
 function parseBushelOps(data, locationFilter) {
   const results = [];
-  const locations = data?.data || [];
+  const locations = data && data.data ? data.data : [];
 
   locations.forEach(loc => {
     const locName = (loc.location_name || "").toLowerCase();
