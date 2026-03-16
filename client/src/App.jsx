@@ -146,7 +146,8 @@ export default function GrainDashboard() {
   const saveSale = entry => { setSales(s=>saleModal!=="new"?s.map(x=>x.id===entry.id?entry:x):[...s,entry]); setSaleModal(null); showToast(saleModal!=="new"?"✓ Contract updated":"✓ Contract added"); };
   const deleteSale = id => { setSales(s=>s.filter(x=>x.id!==id)); showToast("Removed","#ef4444"); };
 
-  const latestPrice = grain => prices.find(p=>p.grain===grain&&p.cash_price);
+  const parseMonth = m => m ? new Date("1 " + m.replace(/([A-Za-z]+)\s+(\d+)/, "$1 20$2")) : new Date("2099");
+const latestPrice = grain => { const c=prices.filter(p=>p.grain===grain&&p.cash_price); return c.sort((a,b)=>parseMonth(a.futures_month)-parseMonth(b.futures_month))[0]||null; };
   const cornBid  = latestPrice("Corn");
   const soyBid   = latestPrice("Soybeans");
   const filteredSales = sales.filter(s=>(filterGrain==="All"||s.grain===filterGrain)&&(filterType==="All"||s.type===filterType));
