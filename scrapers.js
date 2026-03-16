@@ -85,7 +85,7 @@ if (seen.has(monthKey)) return;
         const basis = parseFloat(tds[3]) || null;
         const cashPrice = parseFloat(tds[4]);
         if (!cashPrice || cashPrice < 1) return;
-        seen.add(deliveryPeriod);
+        seen.add(monthKey);
         results.push({ commodity: "Corn", cashPrice, basis, futuresMonth: deliveryPeriod, rawText: row.slice(0, 200) });
       });
 
