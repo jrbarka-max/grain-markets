@@ -147,7 +147,9 @@ export default function GrainDashboard() {
   const deleteSale = id => { setSales(s=>s.filter(x=>x.id!==id)); showToast("Removed","#ef4444"); };
 
   const parseMonth = m => m ? new Date("1 " + m.replace(/([A-Za-z]+)\s+(\d+)/, "$1 20$2")) : new Date("2099");
-const latestPrice = grain => { const c=prices.filter(p=>p.grain===grain&&p.cash_price); return c.sort((a,b)=>parseMonth(a.futures_month)-parseMonth(b.futures_month))[0]||null; };
+  const sortByMonth = arr => [...arr].sort((a,b) => parseMonth(a.futures_month) - parseMonth(b.futures_month));
+  const latestPrice = grain => sortByMonth(prices.filter(p=>p.grain===grain&&p.cash_price))[0]||null;
+
   const cornBid  = latestPrice("Corn");
   const soyBid   = latestPrice("Soybeans");
   const filteredSales = sales.filter(s=>(filterGrain==="All"||s.grain===filterGrain)&&(filterType==="All"||s.type===filterType));
@@ -235,7 +237,7 @@ const latestPrice = grain => { const c=prices.filter(p=>p.grain===grain&&p.cash_
 
             <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16,marginBottom:22 }}>
               {displaySources.map(src=>{
-                const srcPrices = prices.filter(p=>p.scraper_id===src.id);
+                const srcPrices = sortByMonth(prices.filter(p=>p.scraper_id===src.id));
                 return (
                   <div key={src.id} style={{ background:"#0a130a",border:"1px solid #1e3a1e",borderRadius:14,padding:20 }}>
                     <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14 }}>
@@ -250,9 +252,12 @@ const latestPrice = grain => { const c=prices.filter(p=>p.grain===grain&&p.cash_
                     </div>
                     {srcPrices.length>0?(
                       <div style={{ display:"grid",gridTemplateColumns:`repeat(${Math.min(srcPrices.length,2)},1fr)`,gap:10 }}>
-                        {srcPrices.map(p=>(
-                          <div key={p.id} style={{ textAlign:"center",padding:"10px 8px",background:"#060d06",borderRadius:10,border:"1px solid #1a2e1a" }}>
-                            <div style={{ fontSize:10,color:GRAIN_COLORS[p.grain]||"#6aa87a",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:4 }}>{p.grain}</div>
+                        {srcPrices.map((p,pi)=>(
+                          <div key={p.id} style={{ textAlign:"center",padding:"10px 8px",background:"#060d06",borderRadius:10,border:`1px solid ${pi===0?"#22c55e44":"#1a2e1a"}` }}>
+                            <div style={{ display:"flex",justifyContent:"center",alignItems:"center",gap:5,marginBottom:4 }}>
+                              <div style={{ fontSize:10,color:GRAIN_COLORS[p.grain]||"#6aa87a",textTransform:"uppercase",letterSpacing:"0.08em" }}>{p.grain}</div>
+                              {pi===0&&<span style={{ fontSize:9,padding:"1px 5px",borderRadius:8,background:"rgba(34,197,94,0.15)",border:"1px solid #22c55e55",color:"#4ade80" }}>SPOT</span>}
+                            </div>
                             <div style={{ fontSize:22,fontFamily:"'Playfair Display',serif",fontWeight:700,color:"#e8f5e9" }}>{fmt2(p.cash_price)}</div>
                             <div style={{ fontSize:12,color:p.basis<0?"#f87171":"#4ade80",marginTop:3 }}>Basis {fmtBasis(p.basis)}</div>
                             {p.futures_month&&<div style={{ fontSize:10,color:"#2a5a3a",marginTop:2 }}>{p.futures_month}</div>}
@@ -279,7 +284,7 @@ const latestPrice = grain => { const c=prices.filter(p=>p.grain===grain&&p.cash_
                       {["Source","Location","Grain","Cash","Basis","Month","Time"].map(h=><th key={h} style={{ padding:"10px 14px",textAlign:"left",fontSize:10,color:"#4a7c59",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:500 }}>{h}</th>)}
                     </tr></thead>
                     <tbody>
-                      {prices.map((p,i)=>(
+                      {sortByMonth(prices).map((p,i)=>(
                         <tr key={p.id||i} style={{ borderBottom:"1px solid #0f1a0f",background:i%2===0?"transparent":"rgba(255,255,255,0.01)" }}>
                           <td style={{ padding:"11px 14px",color:"#c8e6c9",fontSize:13 }}>{p.source_name}</td>
                           <td style={{ padding:"11px 14px",color:"#4a7c59",fontSize:12 }}>{p.location}</td>
@@ -299,7 +304,7 @@ const latestPrice = grain => { const c=prices.filter(p=>p.grain===grain&&p.cash_
             <div style={{ marginTop:18,padding:16,background:"#0a130a",border:"1px solid #1a2e1a",borderRadius:12 }}>
               <div style={{ fontSize:12,color:"#4a7c59",marginBottom:6 }}>📌 Architecture</div>
               <div style={{ fontSize:12,color:"#2a5a2a",lineHeight:1.8 }}>
-                Railway backend → <strong style={{ color:"#4a7c59" }}>Puppeteer headless Chrome</strong> renders each elevator site, waits for DTN/JS price widgets, extracts bids → stored in <code style={{ color:"#fbbf24" }}>grain_prices</code> Supabase table → this dashboard reads via REST. Auto-scrapes every 30 min weekdays 7am–5pm CT.
+                Railway backend scrapes Central United Litchfield/Brownton, Bushmills Ethanol, and CHS Mankato → stored in <code style={{ color:"#fbbf24" }}>grain_prices</code> Supabase table → this dashboard reads via REST. Auto-scrapes 9:30am and 2:00pm CT weekdays.
               </div>
             </div>
           </div>
@@ -376,7 +381,7 @@ const latestPrice = grain => { const c=prices.filter(p=>p.grain===grain&&p.cash_
 
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:24 }}>
               {GRAINS.map(grain=>{
-                const liveBid=prices.find(p=>p.grain===grain&&p.cash_price);
+                const liveBid=sortByMonth(prices.filter(p=>p.grain===grain&&p.cash_price))[0]||null;
                 const futures=liveBid?.cash_price?(liveBid.cash_price-(liveBid.basis||0)):null;
                 const basis=basisInputs[grain];
                 const cash=futures?futures+basis:null;
@@ -406,7 +411,7 @@ const latestPrice = grain => { const c=prices.filter(p=>p.grain===grain&&p.cash_
                 </tr></thead>
                 <tbody>
                   {sales.filter(s=>s.basis!=null&&s.type!=="Cash Sale").map((s,i)=>{
-                    const liveBid=prices.find(p=>p.grain===s.grain&&p.cash_price);
+                    const liveBid=sortByMonth(prices.filter(p=>p.grain===s.grain&&p.cash_price))[0]||null;
                     const liveFutures=liveBid?liveBid.cash_price-(liveBid.basis||0):null;
                     const targetCash=liveFutures?liveFutures+s.basis:null;
                     const currentCash=liveBid?.cash_price||null;
