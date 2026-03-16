@@ -78,7 +78,8 @@ const SCRAPERS = [
         const periodMatch = row.match(/data-delivery-period="([^"]+)"/);
         if (!periodMatch) return;
         const deliveryPeriod = periodMatch[1];
-        if (seen.has(deliveryPeriod)) return;
+        const monthKey = deliveryPeriod.replace(/\s*(FH|LH|first half|second half)/i, "").trim();
+if (seen.has(monthKey)) return;
         const tds = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m => m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
         if (tds.length < 5) return;
         const basis = parseFloat(tds[3]) || null;
