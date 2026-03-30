@@ -80,7 +80,12 @@ function SaleModal({ existing, onSave, onClose }) {
 
 export default function GrainDashboard() {
   const [tab,setTab]                   = useState("prices");
-  const [sales,setSales]               = useState(initialSales);
+  const [sales,setSales] = useState(() => {
+    try {
+      const saved = localStorage.getItem('grain-sales');
+      return saved ? JSON.parse(saved) : initialSales;
+    } catch(e) { return initialSales; }
+  });
   const [saleModal,setSaleModal]       = useState(null);
   const [filterGrain,setFilterGrain]   = useState("All");
   const [filterType,setFilterType]     = useState("All");
@@ -143,8 +148,23 @@ export default function GrainDashboard() {
     setScraping(false);
   };
 
-  const saveSale = entry => { setSales(s=>saleModal!=="new"?s.map(x=>x.id===entry.id?entry:x):[...s,entry]); setSaleModal(null); showToast(saleModal!=="new"?"✓ Contract updated":"✓ Contract added"); };
-  const deleteSale = id => { setSales(s=>s.filter(x=>x.id!==id)); showToast("Removed","#ef4444"); };
+  const saveSale = entry => {
+    setSales(s => {
+      const updated = saleModal!=="new" ? s.map(x=>x.id===entry.id?entry:x) : [...s,entry];
+      localStorage.setItem('grain-sales', JSON.stringify(updated));
+      return updated;
+    });
+    setSaleModal(null);
+    showToast(saleModal!=="new"?"✓ Contract updated":"✓ Contract added");
+  };
+  const deleteSale = id => {
+    setSales(s => {
+      const updated = s.filter(x=>x.id!==id);
+      localStorage.setItem('grain-sales', JSON.stringify(updated));
+      return updated;
+    });
+    showToast("Removed","#ef4444");
+  };
 
   const parseMonth = m => m ? new Date("1 " + m.replace(/([A-Za-z]+)\s+(\d+)/, "$1 20$2")) : new Date("2099");
   const sortByMonth = arr => [...arr].sort((a,b) => parseMonth(a.futures_month) - parseMonth(b.futures_month));
