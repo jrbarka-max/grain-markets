@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 
 // ─── CONFIG — swap in your Railway URL ───────────────────────────────────────
-const API_BASE = "https://grain-markets-production.up.railway.app";
+const SUPABASE_URL = "https://zyhzkgwhsqtbhplzekyb.supabase.co";
+const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || "";
 
 const GRAIN_COLORS = { Corn: "#f59e0b", Soybeans: "#84cc16" };
 const GRAINS = ["Corn", "Soybeans"];
@@ -95,28 +96,34 @@ export default function GrainDashboard() {
   const [scraping,setScraping]         = useState(false);
   const [lastRefresh,setLastRefresh]   = useState(null);
   const [apiError,setApiError]         = useState(null);
+  const [scrapeMsg,setScrapeMsg]       = useState(null);
   const [basisInputs,setBasisInputs]   = useState({ Corn:-0.35, Soybeans:-0.40 });
 
   const showToast = (msg,color="#22c55e") => { setToast({msg,color}); setTimeout(()=>setToast(null),3500); };
 
   const fetchPrices = useCallback(async () => {
     try {
-      const r = await fetch(`${API_BASE}/prices`);
+      const r = await fetch(
+        `${SUPABASE_URL}/rest/v1/grain_prices?order=scraped_at.desc&limit=500`,
+        { headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const d = await r.json();
-      setPrices(d.prices||[]);
+      const rows = await r.json();
+      // deduplicate: latest per scraper+grain+futures_month+location
+      const seen = new Set();
+      const latest = rows.filter(row => {
+        const key = `${row.scraper_id}:${row.grain}:${row.futures_month}:${row.location}`;
+        if (seen.has(key)) return false;
+        seen.add(key); return true;
+      });
+      setPrices(latest);
       setLastRefresh(new Date());
       setApiError(null);
     } catch(e) { setApiError(e.message); }
   },[]);
 
   const fetchStatus = useCallback(async () => {
-    try {
-      const r = await fetch(`${API_BASE}/scrape/status`);
-      if (!r.ok) return;
-      const d = await r.json();
-      setScraperStatus(d.sources||[]);
-    } catch(_){}
+    // Status comes from defaultSources — no backend needed
   },[]);
 
   useEffect(()=>{
@@ -128,24 +135,20 @@ export default function GrainDashboard() {
   const handleScrapeAll = async () => {
     setScraping(true);
     try {
-      const r = await fetch(`${API_BASE}/scrape`,{ method:"POST",headers:{"Content-Type":"application/json"},body:"{}" });
+      const r = await fetch("/api/trigger-scrape", { method:"POST" });
       const d = await r.json();
-      const ok = d.results?.filter(x=>x.success).length||0;
-      showToast(`✓ Scraped ${ok}/${d.results?.length||0} sources`);
-      await fetchPrices();
+      if (d.success) {
+        showToast("✓ Scrape triggered — prices update in ~30 seconds");
+        setTimeout(fetchPrices, 30000);
+      } else {
+        showToast("Scrape failed: " + (d.error||"unknown"), "#ef4444");
+      }
     } catch(e){ showToast("Scrape failed: "+e.message,"#ef4444"); }
     setScraping(false);
   };
 
   const handleScrapeOne = async (scraperId,name) => {
-    setScraping(true);
-    try {
-      const r = await fetch(`${API_BASE}/scrape`,{ method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scraperId}) });
-      const d = await r.json();
-      showToast(d.success?`✓ ${name} refreshed`:`✗ ${name}: ${d.error}`, d.success?"#22c55e":"#ef4444");
-      await fetchPrices();
-    } catch(e){ showToast("Error: "+e.message,"#ef4444"); }
-    setScraping(false);
+    handleScrapeAll(); // GitHub Actions scrapes all sources at once
   };
 
   const saveSale = entry => {
