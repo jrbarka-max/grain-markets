@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 
 // ─── CONFIG — swap in your Railway URL ───────────────────────────────────────
 const SUPABASE_URL = "https://zyhzkgwhsqtbhplzekyb.supabase.co";
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || "";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 const GRAIN_COLORS = { Corn: "#f59e0b", Soybeans: "#84cc16" };
 const GRAINS = ["Corn", "Soybeans"];
