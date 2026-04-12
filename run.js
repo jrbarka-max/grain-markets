@@ -7,6 +7,16 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 );
 
+async function cleanupOldPrices() {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await supabase
+    .from("grain_prices")
+    .delete()
+    .lt("scraped_at", cutoff);
+  if (error) console.error("Cleanup error:", error.message);
+  else console.log("✓ Cleaned up prices older than 30 days");
+}
+
 async function savePrices(scraperId, scraperName, location, bids) {
   if (!bids || bids.length === 0) return;
   const rows = bids
@@ -31,7 +41,10 @@ async function savePrices(scraperId, scraperName, location, bids) {
 
 async function saveWeeklySnapshot() {
   try {
-    const { data: prices, error } = await supabase.from("grain_prices").select("*").order("scraped_at", { ascending: false });
+    const { data: prices, error } = await supabase
+      .from("grain_prices")
+      .select("*")
+      .order("scraped_at", { ascending: false });
     if (error) throw error;
     if (!prices || !prices.length) { console.log("Weekly snapshot: no prices."); return; }
 
@@ -57,7 +70,9 @@ async function saveWeeklySnapshot() {
       grain: p.grain,
       cash_price: p.cash_price,
       basis: p.basis,
-      futures_price: (p.basis != null && p.cash_price != null) ? parseFloat((p.cash_price - p.basis).toFixed(4)) : null,
+      futures_price: (p.basis != null && p.cash_price != null)
+        ? parseFloat((p.cash_price - p.basis).toFixed(4))
+        : null,
       futures_month: p.futures_month,
     }));
 
@@ -74,6 +89,9 @@ async function saveWeeklySnapshot() {
 
 async function main() {
   console.log(`[${new Date().toISOString()}] Starting scrape run...`);
+
+  // Clean up expired prices first
+  await cleanupOldPrices();
 
   for (const scraper of SCRAPERS) {
     console.log(`  → Scraping ${scraper.name}...`);
