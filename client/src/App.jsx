@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 
 // ─── CONFIG — swap in your Railway URL ───────────────────────────────────────
 const SUPABASE_URL = "https://zyhzkgwhsqtbhplzekyb.supabase.co";
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || "";
 
 const GRAIN_COLORS = { Corn: "#f59e0b", Soybeans: "#84cc16" };
 const GRAINS = ["Corn", "Soybeans"];
@@ -98,6 +98,8 @@ export default function GrainDashboard() {
   const [apiError,setApiError]         = useState(null);
   const [scrapeMsg,setScrapeMsg]       = useState(null);
   const [basisInputs,setBasisInputs]   = useState({ Corn:-0.35, Soybeans:-0.40 });
+  const [futures,setFutures]           = useState([]);
+  const [futuresTime,setFuturesTime]   = useState(null);
 
   const showToast = (msg,color="#22c55e") => { setToast({msg,color}); setTimeout(()=>setToast(null),3500); };
 
@@ -126,11 +128,24 @@ export default function GrainDashboard() {
     // Status comes from defaultSources — no backend needed
   },[]);
 
+  const fetchFutures = useCallback(async () => {
+    try {
+      const r = await fetch("/api/trigger-scrape?quotes=1");
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d.success) {
+        setFutures(d.quotes||[]);
+        setFuturesTime(new Date());
+      }
+    } catch(_){}
+  },[]);
+
   useEffect(()=>{
-    fetchPrices(); fetchStatus();
+    fetchPrices(); fetchStatus(); fetchFutures();
+    const fiv = setInterval(fetchFutures, 5*60*1000);
     const iv = setInterval(fetchPrices, 5*60*1000);
-    return ()=>clearInterval(iv);
-  },[fetchPrices,fetchStatus]);
+    return ()=>{ clearInterval(iv); clearInterval(fiv); };
+  },[fetchPrices,fetchStatus,fetchFutures]);
 
   const handleScrapeAll = async () => {
     setScraping(true);
@@ -234,6 +249,28 @@ export default function GrainDashboard() {
           </div>
         ))}
       </div>
+
+      {/* Futures Ticker */}
+      {futures.length>0&&(
+        <div style={{ background:"#0a130a",borderBottom:"1px solid #1a2e1a",padding:"8px 28px",display:"flex",gap:24,alignItems:"center",overflowX:"auto" }}>
+          <div style={{ fontSize:10,color:"#2a5a3a",textTransform:"uppercase",letterSpacing:"0.08em",whiteSpace:"nowrap" }}>CBOT Futures</div>
+          {futures.filter(f=>f.price).map(f=>{
+            const isCorn = f.symbol.startsWith("ZC");
+            const color = isCorn ? GRAIN_COLORS.Corn : GRAIN_COLORS.Soybeans;
+            const chg = f.change;
+            return (
+              <div key={f.symbol} style={{ display:"flex",alignItems:"center",gap:8,whiteSpace:"nowrap" }}>
+                <span style={{ fontSize:11,color,fontWeight:600 }}>{f.symbol}</span>
+                <span style={{ fontSize:13,fontFamily:"'Playfair Display',serif",fontWeight:700,color:"#e8f5e9" }}>${parseFloat(f.price).toFixed(4)}</span>
+                <span style={{ fontSize:11,color:chg>0?"#4ade80":chg<0?"#f87171":"#6b7280" }}>{chg!=null?(chg>0?"+":"")+chg.toFixed(4):""}</span>
+              </div>
+            );
+          })}
+          <div style={{ fontSize:10,color:"#2a3d2a",marginLeft:"auto",whiteSpace:"nowrap" }}>
+            {futuresTime?`15 min delayed · ${futuresTime.toLocaleTimeString()}`:""}
+          </div>
+        </div>
+      )}
 
       <div style={{ padding:"24px 28px" }}>
 
