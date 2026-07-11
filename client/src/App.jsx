@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
-
 // ─── CONFIG — swap in your Railway URL ───────────────────────────────────────
 const SUPABASE_URL = "https://zyhzkgwhsqtbhplzekyb.supabase.co";
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || "";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 const GRAIN_COLORS = { Corn: "#f59e0b", Soybeans: "#84cc16" };
 const GRAINS = ["Corn", "Soybeans"];
@@ -186,9 +185,7 @@ export default function GrainDashboard() {
 
   const parseMonth = m => m ? new Date("1 " + m.replace(/([A-Za-z]+)\s+(\d+)/, "$1 20$2")) : new Date("2099");
   const sortByMonth = arr => [...arr].sort((a,b) => parseMonth(a.futures_month) - parseMonth(b.futures_month));
-  const currentMonth = new Date(); currentMonth.setDate(1); currentMonth.setHours(0,0,0,0);
-  const filterExpired = arr => arr.filter(p => !p.futures_month || parseMonth(p.futures_month) >= currentMonth);
-  const latestPrice = grain => sortByMonth(filterExpired(prices.filter(p=>p.grain===grain&&p.cash_price)))[0]||null;
+  const latestPrice = grain => sortByMonth(prices.filter(p=>p.grain===grain&&p.cash_price))[0]||null;
 
   const cornBid  = latestPrice("Corn");
   const soyBid   = latestPrice("Soybeans");
@@ -299,7 +296,7 @@ export default function GrainDashboard() {
 
             <div style={{ display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16,marginBottom:22 }}>
               {displaySources.map(src=>{
-                const srcPrices = sortByMonth(filterExpired(prices.filter(p=>p.scraper_id===src.id)));
+                const srcPrices = sortByMonth(prices.filter(p=>p.scraper_id===src.id));
                 return (
                   <div key={src.id} style={{ background:"#0a130a",border:"1px solid #1e3a1e",borderRadius:14,padding:20 }}>
                     <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14 }}>
@@ -346,7 +343,7 @@ export default function GrainDashboard() {
                       {["Source","Location","Grain","Cash","Basis","Month","Time"].map(h=><th key={h} style={{ padding:"10px 14px",textAlign:"left",fontSize:10,color:"#4a7c59",textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:500 }}>{h}</th>)}
                     </tr></thead>
                     <tbody>
-                      {sortByMonth(filterExpired(prices)).map((p,i)=>(
+                      {sortByMonth(prices).map((p,i)=>(
                         <tr key={p.id||i} style={{ borderBottom:"1px solid #0f1a0f",background:i%2===0?"transparent":"rgba(255,255,255,0.01)" }}>
                           <td style={{ padding:"11px 14px",color:"#c8e6c9",fontSize:13 }}>{p.source_name}</td>
                           <td style={{ padding:"11px 14px",color:"#4a7c59",fontSize:12 }}>{p.location}</td>
@@ -443,7 +440,7 @@ export default function GrainDashboard() {
 
             <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:18,marginBottom:24 }}>
               {GRAINS.map(grain=>{
-                const liveBid=sortByMonth(filterExpired(prices.filter(p=>p.grain===grain&&p.cash_price)))[0]||null;
+                const liveBid=sortByMonth(prices.filter(p=>p.grain===grain&&p.cash_price))[0]||null;
                 const futures=liveBid?.cash_price?(liveBid.cash_price-(liveBid.basis||0)):null;
                 const basis=basisInputs[grain];
                 const cash=futures?futures+basis:null;
@@ -473,7 +470,7 @@ export default function GrainDashboard() {
                 </tr></thead>
                 <tbody>
                   {sales.filter(s=>s.basis!=null&&s.type!=="Cash Sale").map((s,i)=>{
-                    const liveBid=sortByMonth(filterExpired(prices.filter(p=>p.grain===s.grain&&p.cash_price)))[0]||null;
+                    const liveBid=sortByMonth(prices.filter(p=>p.grain===s.grain&&p.cash_price))[0]||null;
                     const liveFutures=liveBid?liveBid.cash_price-(liveBid.basis||0):null;
                     const targetCash=liveFutures?liveFutures+s.basis:null;
                     const currentCash=liveBid?.cash_price||null;
