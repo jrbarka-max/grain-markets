@@ -75,10 +75,10 @@ const SCRAPERS = [
       // HTML table: td1=delivery label | td2=futures month+price | td3=change | td4=basis | td5=cash price
       const rows = html.match(/<tr[\s\S]*?<\/tr>/gi) || [];
       rows.forEach(row => {
-        const periodMatch = row.match(/data-delivery-period="([^"]+)"/);
+        const periodMatch = row.match(/data-delivery-period-label="([^"]+)"/);
         if (!periodMatch) return;
         const deliveryPeriod = periodMatch[1];
-        const monthKey = deliveryPeriod.replace(/\s*(FH|LH|first half|second half)/i, "").trim();
+        const monthKey = deliveryPeriod.replace(/\s*-\s*(FH|LH|first half|second half)/i, "").trim();
 if (seen.has(monthKey)) return;
         const tds = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(m => m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
         if (tds.length < 5) return;
