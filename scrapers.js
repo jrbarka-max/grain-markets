@@ -67,8 +67,10 @@ const SCRAPERS = [
       let html = text;
       try { html = JSON.parse(text); } catch(e) { /* already raw HTML */ }
 
-      console.log("Bushmills HTML snippet:", html.slice(0, 500));
-
+      console.log("Bushmills response type:", typeof text, "length:", text.length);
+console.log("Bushmills html type:", typeof html, "length:", html.length);
+console.log("Bushmills tr count:", (html.match(/<tr/gi)||[]).length);
+console.log("Bushmills period-label count:", (html.match(/data-delivery-period-label/gi)||[]).length);
       const results = [];
       const seen = new Set();
 
